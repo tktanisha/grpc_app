@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/khand/grpc_app/pb"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 type server struct {
@@ -94,6 +95,7 @@ func main() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	s := grpc.NewServer()
+	reflection.Register(s)
 	srv := newServer()
 	pb.RegisterUserServiceServer(s, srv)
 	log.Printf("server listening at %v", lis.Addr())
