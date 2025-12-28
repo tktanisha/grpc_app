@@ -10,6 +10,7 @@ import (
 
 	"github.com/khand/grpc_app/pb"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
@@ -21,14 +22,24 @@ func main() {
 	email := flag.String("email", "", "user email")
 	flag.Parse()
 
-	// Use DialContext with insecure credentials for local testing
 	dialCtx, dialCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer dialCancel()
-	conn, err := grpc.DialContext(dialCtx, *serverAddr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+	conn, err := grpc.DialContext(dialCtx, *serverAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
 	defer conn.Close()
+
+	// Wait until connection is READY or dialCtx expires.
+	waitCtx, waitCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer waitCancel()
+	for conn.GetState() != connectivity.Ready {
+		if !conn.WaitForStateChange(waitCtx, conn.GetState()) {
+			log.Fatalf("connection state did not become READY: %v", conn.GetState())
+		}
+	}
 	c := pb.NewUserServiceClient(conn)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
